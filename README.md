@@ -5,4 +5,4 @@ Arduino based implementation with 2 sensors including an Ultrasonic and an alcoh
 
 2. This code is written in C, in the Arduiono IDE.
 
-3. Follow <iframe width="956" height="538" src="https://www.youtube.com/embed/ajxo4u07EM4" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+3. Follow the steps on youtube: https://www.youtube.com/watch?v=ajxo4u07EM4&t=1s
