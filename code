@@ -1,0 +1,231 @@
+#include <IRremote.h>
+#include <IRremoteInt.h>
+#include <LiquidCrystal.h>
+
+//Sensor MQ-3
+//LiquidCrystal lcd(2, 3, 4, 5, 6, 7);   
+const int ledPin = 13;
+const int sensorPin = A0;
+const int pos = 2;
+
+//Ultrasonic
+const int pingPin = 4;   
+const int trigPin = 3;     
+
+//Motor Rear 
+const int enableRear = 10;
+const int motorRear1 = 8;
+const int motorRear2 = 9;
+
+//Motor Front
+const int enableFront = 7;
+const int motorFront1 = 6;
+const int motorFront2 = 5;  
+ 
+//Initialize IR-Receiver
+int RECV_PIN = 11;
+IRrecv irrecv(RECV_PIN);
+decode_results results;
+
+//Initializations througout code
+int rearSpeed = 255;     // Motor speed  0~255
+int rotate = 1; 
+int danger = 0;
+int left = 0, right = 0, frontSpeed = 255;
+int counter = 0, cm = 10000;
+int targetTime10 = 0, first = 0;
+int firstleft = 0, past150 = 0;     //DEFAULT: left = 0, firstleft = 0    
+unsigned long time
+nextTime = 1000;
+
+void setup(){
+  Serial.begin(9600);
+  irrecv.enableIRIn();
+
+  //Initialize LCD
+  //lcd.begin(16,2);
+  pinMode(ledPin,OUTPUT);
+  
+  //Initialize Moter Rear and Front
+  pinMode(enableRear,OUTPUT);     
+  pinMode(motorRear1,OUTPUT);     
+  pinMode(motorRear2,OUTPUT);     
+  pinMode(enableFront,OUTPUT);    
+  pinMode(motorFront1,OUTPUT);     
+  pinMode(motorFront2,OUTPUT); 
+  pinMode(trigPin, OUTPUT);
+  pinMode(pingPin, INPUT);   
+
+  delay(1000);
+}
+
+void loop(){
+  
+// rotate = 0 -> Stop
+// rotate = 1 -> Front
+// rotate = 2 -> Back
+
+//=======================  Sensor  ===========================
+  int value;
+  int valueToRead = analogRead(sensorPin);
+  value = analogRead(A0);
+  //lcd.print("Alcohollevel: ");
+  //lcd.println(value);
+  Serial.println(value);
+  if (valueToRead < 900) 
+    {
+      digitalWrite(ledPin,LOW); 
+      //lcd.setCursor(0, 2);
+      //lcd.print(" Normal... :)");
+      Serial.print(" Normal... ");  
+
+
+  //Counting function "millis" every 250ms
+  time = millis();
+  if (time >= nextTime){ 
+    nextTime = nextTime + 250;
+    counter = 1;
+  }else{
+    counter = 0;
+  }
+  
+//============================================    Receive signal    ============================
+  if (irrecv.decode(&results)) {
+    irrecv.resume();
+    if(results.value == 16753245){          // 1: Back
+      rotate = 2;
+    }else if(results.value == 16736925){    // 2: Stop
+      rotate = 0;
+    }else if(results.value == 16769565){    // 3: Front
+      rotate = 1;
+    }else if(results.value == 16720605){    // 4: Left
+      left = 1;
+      right = 0;
+    }else if(results.value == 16712445){    // 5: Straight
+      left = 0;
+      right = 0;
+    }else if(results.value == 16761405){    // 6: Right
+      left = 0;
+      right = 1;
+    }
+  }
+//----------------------------------------------------------------------------------------------
+
+//============================================    Front - Back    ============================
+  
+  if (rotate == 1){        //-------------------  Rotate Front
+    //digitalWrite(rearRED,LOW);
+    clockwise(rearSpeed); 
+    // Check Ultrasonic
+    if (counter == 1){
+      cm = ping(pingPin);
+      if(cm < 20){
+        danger = 1;
+        rotate = 0;
+      }
+    } 
+  }else if (rotate == 2){       //-------------  Rotate Back
+    //digitalWrite(rearRED,HIGH);
+    rearSpeed = 255;
+    counterclockwise(rearSpeed);   
+    if(danger == 1){
+      cm = ping(pingPin);
+      if (cm > 20){
+        rotate = 0;
+        danger = 0;
+        //digitalWrite(frontRedDanger,LOW);
+        //digitalWrite(frontGreenDanger,HIGH);
+      }
+    }
+  }else{        //----------------------------  Stop
+    //digitalWrite(rearRED,LOW);
+    analogWrite(enableRear,LOW);     
+    if(danger == 1){
+      delay(1500);
+      rotate = 2; 
+    }        
+  }
+//----------------------------------------------------------------------------------------------
+
+//============================================    Right & Left    ============================
+  if ((left == 0) && (right == 1)){        //------- Turn Right    ->
+    turnRight(frontSpeed);
+  }else if((left == 1) && (right == 0)){        //-- Turn Left  <-
+    turnLeft(frontSpeed);
+  }else{
+    analogWrite(enableFront,0);
+  }
+//----------------------------------------------------------------------------------------------
+  Serial.print(time);
+  Serial.print("  ");
+  Serial.print(nextTime);
+  Serial.print("  ");
+  Serial.print(counter);
+  Serial.print("  ");
+  Serial.print(cm);
+  Serial.print("  ");
+  Serial.print(danger);
+  Serial.print("  ");
+  Serial.print(rotate);
+  Serial.print("  ");
+  Serial.print(results.value);
+  Serial.println("");
+ 
+  }
+  else {
+      digitalWrite(ledPin,HIGH);
+      //lcd.setCursor(0, 2);
+      //lcd.print(" Alert....!!! ");
+      Serial.print (" Alert...!!! ");  
+    }
+    delay(1000);
+    //lcd.clear();
+
+}
+
+//Function for front move
+void clockwise(int Speed){
+  digitalWrite(enableRear,HIGH);
+  analogWrite(motorRear1,0);        //set the speed of motor
+  analogWrite(motorRear2,Speed);         //stop the motorIn2 pin of motor
+}
+
+//Function for back move
+void counterclockwise(int Speed){
+  digitalWrite(enableRear,HIGH);
+  analogWrite(motorRear1,Speed);       //stop the motorIn1 pin of motor
+  analogWrite(motorRear2,0);        //set the speed of motor
+}
+
+
+//Function for left
+void turnRight(int Speed){
+  digitalWrite(enableFront,HIGH);
+  analogWrite(motorFront1,Speed);       //set the speed of motor
+  analogWrite(motorFront2,0);       //stop the motorIn2 pin of motor
+}
+
+//Function for right
+void turnLeft(int Speed){
+  digitalWrite(enableFront,HIGH);
+  analogWrite(motorFront1,0);       //set the speed of motor
+  analogWrite(motorFront2,Speed);       //stop the motorIn2 pin of motor 
+}
+
+//Function for ultrasonic
+int ping(int pingPin){ 
+   long duration, cm; 
+   digitalWrite(trigPin, LOW); 
+   delayMicroseconds(2); 
+   digitalWrite(trigPin, HIGH); 
+   delayMicroseconds(5); 
+   digitalWrite(trigPin, LOW); 
+   duration = pulseIn(pingPin, HIGH); 
+   
+   cm = microsecondsToCentimeters(duration); 
+   return cm ; 
+} 
+
+long microsecondsToCentimeters(long microseconds){ 
+   return microseconds / 29 / 2; 
+}  
