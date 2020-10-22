@@ -8,3 +8,5 @@ Arduino based implementation with 2 sensors including an Ultrasonic and an alcoh
 3. Follow the steps on youtube: https://www.youtube.com/watch?v=ajxo4u07EM4&t=1s
 
 4. The circuit is provided as an image.
+
+5. Done!!
